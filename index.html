@@ -265,6 +265,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   });
   var itemsDefault = ['Air radiator', 'Air aki', 'Angin Ban', 'Kondisi Ban', 'Kebersihan', 'Kondisi Bodi', 'Kerusakan'];
+  var catatanItem = { 'Kebersihan': 'Cuci mobil minimal 1x seminggu' };
   var kondisiOpsi = ['Full', 'Kurang', 'Bagus', 'Tipis', 'Bersih', 'Kotor', 'Ada', 'Tidak ada'];
   var tindakanOpsi = ['Isi', 'Tidak ada', 'Tambal Ban', 'Ganti Ban', 'Cuci', 'Laporan'];
   var dataTersimpan = null;
@@ -272,7 +273,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function buatBaris(nama){
     var tr = document.createElement('tr');
     var opt = function(arr){ return arr.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join(''); };
-    tr.innerHTML = '<td class="item"><input type="text" class="itemInput" value="'+nama+'" readonly style="border:none;font-weight:600;background:transparent"></td>' +
+    var catatan = catatanItem[nama] ? '<div class="itemNote" style="font-size:11px;color:#888;font-weight:400;margin-top:2px">'+catatanItem[nama]+'</div>' : '';
+    tr.innerHTML = '<td class="item"><input type="text" class="itemInput" value="'+nama+'" readonly style="border:none;font-weight:600;background:transparent">'+catatan+'</td>' +
       '<td data-label="Kondisi"><select class="kondisi">'+opt(kondisiOpsi)+'</select></td>' +
       '<td data-label="Tindakan"><select class="tindakan">'+opt(tindakanOpsi)+'</select></td>' +
       '<td data-label="Foto (maks. 3)" class="fotoCell">' +
