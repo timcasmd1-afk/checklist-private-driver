@@ -60,6 +60,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   .navbar button { background: transparent; color: #cfe0f3; border: none; padding: 16px 18px; font-size: 14px; cursor: pointer; border-bottom: 3px solid transparent; }
   .navbar button:hover { background: rgba(255,255,255,.08); color:#fff; }
   .navbar button.active { color: #fff; border-bottom-color: #4da3ff; font-weight: 600; }
+  .vtab-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .vtab { padding:9px 18px; border:1px solid #cfd8e3; background:#f3f6fa; border-radius:20px; font-weight:600; font-size:13px; cursor:pointer; color:#33475b; transition: box-shadow .15s; }
+  .vtab.belum { background:#e74c3c; color:#fff; border-color:#c0392b; }
+  .vtab.terisi { background:#1e3a5f; color:#fff; border-color:#1e3a5f; }
+  .vtab.active { box-shadow: 0 0 0 3px rgba(77,163,255,.55); }
   .wrap { max-width: 900px; margin: 24px auto; padding: 0 16px; }
   .card { background:#fff; border-radius:10px; padding:24px; box-shadow:0 1px 4px rgba(0,0,0,.08); margin-bottom:20px; }
   h2 { font-size:20px; margin-bottom:16px; color:#1e3a5f; }
@@ -168,14 +173,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <select id="hari"></select>
           </div>
         </div>
+        <div class="vtab-bar">
+          <button type="button" class="vtab belum active" data-nopol="L 45 AD">L 45 AD</button>
+          <button type="button" class="vtab belum" data-nopol="M 1628 AV">M 1628 AV</button>
+        </div>
         <div class="row2">
           <div class="field">
             <label for="petugas">Nama Petugas</label>
             <input type="text" id="petugas" placeholder="Masukkan nama petugas">
-          </div>
-          <div class="field">
-            <label for="nopol">Nopol Kendaraan</label>
-            <input type="text" id="nopol" placeholder="Contoh: M 1234 AB" style="text-transform:uppercase">
           </div>
         </div>
         <div class="row2">
@@ -268,7 +273,75 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var catatanItem = { 'Kebersihan': 'Cuci mobil minimal 1x seminggu' };
   var kondisiOpsi = ['Full', 'Kurang', 'Bagus', 'Tipis', 'Bersih', 'Kotor', 'Ada', 'Tidak ada'];
   var tindakanOpsi = ['Isi', 'Tidak ada', 'Tambal Ban', 'Ganti Ban', 'Cuci', 'Laporan'];
-  var dataTersimpan = null;
+  var daftarNopol = ['L 45 AD', 'M 1628 AV'];
+  function slugNopol(nopol){ return (nopol || '').replace(/\s+/g, ''); }
+  function stateKendaraanBaru(){
+    return {
+      petugas: '', kmNow: '', kmMesin: '', kmPersneling: '', kmGardan: '', stnk: '',
+      rows: [],
+      laporan: null
+    };
+  }
+  var vehicles = {};
+  daftarNopol.forEach(function(n){ vehicles[n] = stateKendaraanBaru(); });
+  var nopolAktif = daftarNopol[0];
+
+  function bacaStateForm(){
+    var trs = [].slice.call(document.querySelectorAll('#tabelCek tbody tr'));
+    return {
+      petugas: document.getElementById('petugas').value,
+      kmNow: document.getElementById('kmNow').value,
+      kmMesin: document.getElementById('kmMesin').value,
+      kmPersneling: document.getElementById('kmPersneling').value,
+      kmGardan: document.getElementById('kmGardan').value,
+      stnk: document.getElementById('stnk').value,
+      rows: trs.map(function(tr){
+        return {
+          kondisi: tr.querySelector('.kondisi').value,
+          tindakan: tr.querySelector('.tindakan').value,
+          fotos: (tr._fotos || []).slice()
+        };
+      })
+    };
+  }
+  function simpanFormKeState(nopol){
+    var s = bacaStateForm();
+    vehicles[nopol].petugas = s.petugas;
+    vehicles[nopol].kmNow = s.kmNow;
+    vehicles[nopol].kmMesin = s.kmMesin;
+    vehicles[nopol].kmPersneling = s.kmPersneling;
+    vehicles[nopol].kmGardan = s.kmGardan;
+    vehicles[nopol].stnk = s.stnk;
+    vehicles[nopol].rows = s.rows;
+  }
+  function muatStateKeForm(nopol){
+    var v = vehicles[nopol];
+    document.getElementById('petugas').value = v.petugas;
+    document.getElementById('kmNow').value = v.kmNow;
+    document.getElementById('kmMesin').value = v.kmMesin;
+    document.getElementById('kmPersneling').value = v.kmPersneling;
+    document.getElementById('kmGardan').value = v.kmGardan;
+    document.getElementById('stnk').value = v.stnk;
+    var trs = [].slice.call(document.querySelectorAll('#tabelCek tbody tr'));
+    trs.forEach(function(tr, i){
+      var r = v.rows[i] || { kondisi: kondisiOpsi[0], tindakan: tindakanOpsi[0], fotos: [] };
+      tr.querySelector('.kondisi').value = r.kondisi;
+      tr.querySelector('.tindakan').value = r.tindakan;
+      tr._fotos = r.fotos.slice();
+      renderThumbs(tr);
+    });
+  }
+  document.querySelectorAll('.vtab').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (btn.dataset.nopol === nopolAktif) return;
+      simpanFormKeState(nopolAktif);
+      document.querySelectorAll('.vtab').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      nopolAktif = btn.dataset.nopol;
+      muatStateKeForm(nopolAktif);
+      tampilkanHasilForm(nopolAktif);
+    });
+  });
 
   function buatBaris(nama){
     var tr = document.createElement('tr');
@@ -282,6 +355,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       '<input type="file" class="foto" accept="image/*" capture="environment" style="display:none" onchange="fotoDiambil(this)">' +
       '<div class="fotoThumbs"></div></td>';
     document.querySelector('#tabelCek tbody').appendChild(tr);
+    daftarNopol.forEach(function(n){ vehicles[n].rows.push({ kondisi: kondisiOpsi[0], tindakan: tindakanOpsi[0], fotos: [] }); });
   }
   function tambahItem(){
     var pw = prompt('Masukkan password admin untuk menambah item:');
@@ -386,24 +460,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var tr = input.closest('tr');
     return Promise.resolve((tr._fotos || []).slice(0, 3));
   }
-  function namaFoto(mode){
+  function namaFoto(mode, lap){
     if (mode === 'periode') {
-      var a = (dataTersimpan.periodeAwal || '-').replace(/-/g, '');
-      var b = (dataTersimpan.periodeAkhir || '-').replace(/-/g, '');
-      return 'Laporan-Cek-Kendaraan-Periode-'+a+'_'+b+'.png';
+      var a = (lap.periodeAwal || '-').replace(/-/g, '');
+      var b = (lap.periodeAkhir || '-').replace(/-/g, '');
+      return 'Laporan-Cek-Kendaraan-'+slugNopol(lap.nopol)+'-Periode-'+a+'_'+b+'.png';
     }
-    return 'Laporan-Cek-Kendaraan-'+dataTersimpan.hari+'-'+dataTersimpan.tanggal+'.png';
+    return 'Laporan-Cek-Kendaraan-'+slugNopol(lap.nopol)+'-'+lap.hari+'-'+lap.tanggal+'.png';
   }
 
-  function shareFoto(mode){
-    if (!dataTersimpan){ alert('Simpan data dulu.'); return; }
-    var targetId = mode === 'periode' ? 'laporanShotPeriode' : 'laporanShotHariIni';
+  function shareFoto(mode, nopol){
+    nopol = nopol || nopolAktif;
+    var lap = vehicles[nopol] && vehicles[nopol].laporan;
+    if (!lap){ alert('Simpan data dulu untuk kendaraan '+nopol+'.'); return; }
+    var targetId = (mode === 'periode' ? 'laporanShotPeriode_' : 'laporanShotHariIni_') + slugNopol(nopol);
     var node = document.getElementById(targetId);
     if (!node){ alert('Laporan belum tersedia. Klik Simpan dulu.'); return; }
-    var fileName = namaFoto(mode);
+    var fileName = namaFoto(mode, lap);
     var teksBagikan = mode === 'periode'
-      ? 'Laporan cek kendaraan periode ('+formatPeriode(dataTersimpan.periodeAwal, dataTersimpan.periodeAkhir, null)+')'
-      : 'Laporan cek kendaraan ('+dataTersimpan.hari+', '+dataTersimpan.tanggal+')';
+      ? 'Laporan cek kendaraan '+nopol+' periode ('+formatPeriode(lap.periodeAwal, lap.periodeAkhir, null)+')'
+      : 'Laporan cek kendaraan '+nopol+' ('+lap.hari+', '+lap.tanggal+')';
     html2canvas(node, { scale:2, backgroundColor:'#ffffff', useCORS:true }).then(function(canvas){
       canvas.toBlob(function(blob){
         var file = new File([blob], fileName, { type:'image/png' });
@@ -419,6 +495,74 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  function bangunShotHtml(lap, shotId){
+    var rows = lap.baris.map(function(b){
+      var img = (b.foto && b.foto.length) ? b.foto.map(function(sc){ return '<img class="thumb" src="'+sc+'">'; }).join(' ') : '<span class="muted">-</span>';
+      return '<tr><td class="item">'+b.item+'</td><td>'+b.kondisi+'</td><td>'+b.tindakan+'</td><td>'+img+'</td></tr>';
+    }).join('');
+    var tabel = '<table><thead><tr><th>Item</th><th>Kondisi</th><th>Tindakan</th><th>Foto</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    var tanggalLengkap = formatPeriode(lap.tanggal, lap.tanggal, lap.hari);
+    var periodeLengkap = formatPeriode(lap.periodeAwal, lap.periodeAkhir, null);
+    return '<div class="shot" id="'+shotId+'">' +
+      '<h3>&#128663; Laporan Cek Kendaraan &mdash; '+lap.nopol+'</h3>' +
+      '<p><b>Tanggal Pengecekan:</b> '+tanggalLengkap+' &nbsp;|&nbsp; <b>Petugas:</b> '+lap.petugas+' &nbsp;|&nbsp; <b>Nopol:</b> '+lap.nopol+'</p>' +
+      '<p style="margin-top:4px"><b>Periode Laporan:</b> '+periodeLengkap+'</p>' +
+      '<p style="margin-top:4px"><b>KM Saat Ini:</b> '+lap.kmNow+' km &nbsp;|&nbsp; <b>Ganti Oli Mesin:</b> '+lap.kmMesin+' km<br><b>Ganti Oli Persneling:</b> '+lap.kmPersneling+' km &nbsp;|&nbsp; <b>Ganti Oli Gardan:</b> '+lap.kmGardan+' km</p>' +
+      '<p style="margin-top:4px"><b>Tanggal Berlaku STNK:</b> '+lap.stnk+'</p>' + tabel +
+      '</div>';
+  }
+
+  function tampilkanHasilForm(nopol){
+    var hasil = document.getElementById('hasil');
+    var lap = vehicles[nopol].laporan;
+    if (!lap){
+      hasil.style.display = 'none';
+      hasil.innerHTML = '';
+      return;
+    }
+    var shot = bangunShotHtml(lap, 'laporanShotHariIni_' + slugNopol(nopol));
+    hasil.style.display = 'block';
+    hasil.innerHTML = '<div class="ok">&#10004; Data tersimpan untuk '+nopol+'</div>' + shot +
+      '<div class="share"><div class="share-title">Bagikan laporan:</div><div class="share-btns">' +
+      '<button type="button" class="s-wa" onclick="shareFoto(\'hariini\', \''+nopol+'\')">Bagikan ke WhatsApp (Hari Ini)</button>' +
+      '<button type="button" class="s-xl" onclick="exportExcel(\''+nopol+'\')">&#128202; Ekspor ke Excel</button>' +
+      '</div></div>';
+  }
+
+  function renderRingkasan(){
+    var kosong = document.getElementById('ringkasanKosong');
+    var isi = document.getElementById('ringkasanIsi');
+    var adaData = daftarNopol.some(function(n){ return vehicles[n].laporan; });
+    if (!adaData){
+      kosong.style.display = 'block';
+      isi.innerHTML = '';
+      return;
+    }
+    kosong.style.display = 'none';
+    isi.innerHTML = daftarNopol.map(function(n){
+      var lap = vehicles[n].laporan;
+      if (!lap){
+        return '<div style="margin-bottom:22px"><h3>&#128663; '+n+'</h3><p class="muted">Belum ada data untuk kendaraan ini.</p></div>';
+      }
+      var shot = bangunShotHtml(lap, 'laporanShotPeriode_' + slugNopol(n));
+      var share = '<div class="share"><div class="share-title">Bagikan laporan:</div><div class="share-btns">' +
+        '<button type="button" class="s-wa" onclick="shareFoto(\'periode\', \''+n+'\')">Bagikan ke WhatsApp (Periode)</button>' +
+        '</div></div>';
+      return '<div style="margin-bottom:22px">' + shot + share + '</div>';
+    }).join('');
+  }
+  document.getElementById('periodeAwal').addEventListener('change', renderRingkasan);
+  document.getElementById('periodeAkhir').addEventListener('change', renderRingkasan);
+
+  function perbaruiStatusVtab(){
+    document.querySelectorAll('.vtab').forEach(function(btn){
+      var n = btn.dataset.nopol;
+      var terisi = !!(vehicles[n] && vehicles[n].laporan);
+      btn.classList.toggle('terisi', terisi);
+      btn.classList.toggle('belum', !terisi);
+    });
+  }
+
   function simpan(){
     var tanggal = document.getElementById('tanggal').value || '(kosong)';
     var hari = document.getElementById('hari').value;
@@ -428,8 +572,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       alert('Periode Akhir tidak boleh sebelum Periode Awal.');
       return;
     }
+    var nopol = nopolAktif;
     var petugas = document.getElementById('petugas').value || '(kosong)';
-    var nopol = (document.getElementById('nopol').value || '-').toUpperCase();
     var kmNow = document.getElementById('kmNow').value || '-';
     var kmMesin = document.getElementById('kmMesin').value || '-';
     var kmPersneling = document.getElementById('kmPersneling').value || '-';
@@ -441,45 +585,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         return { item: tr.querySelector('.item input').value, kondisi: tr.querySelector('.kondisi').value, tindakan: tr.querySelector('.tindakan').value, foto: foto };
       });
     })).then(function(baris){
-      dataTersimpan = { tanggal: tanggal, hari: hari, periodeAwal: periodeAwal || '(kosong)', periodeAkhir: periodeAkhir || '(kosong)', petugas: petugas, nopol: nopol, kmNow: kmNow, kmMesin: kmMesin, kmPersneling: kmPersneling, kmGardan: kmGardan, stnk: stnk, baris: baris };
-
-      var rows = baris.map(function(b){
-        var img = (b.foto && b.foto.length) ? b.foto.map(function(sc){ return '<img class="thumb" src="'+sc+'">'; }).join(' ') : '<span class="muted">-</span>';
-        return '<tr><td class="item">'+b.item+'</td><td>'+b.kondisi+'</td><td>'+b.tindakan+'</td><td>'+img+'</td></tr>';
-      }).join('');
-      var tabel = '<table><thead><tr><th>Item</th><th>Kondisi</th><th>Tindakan</th><th>Foto</th></tr></thead><tbody>'+rows+'</tbody></table>';
-
-      var tanggalLengkap = formatPeriode(tanggal, tanggal, hari);
-      var periodeLengkap = formatPeriode(periodeAwal, periodeAkhir, null);
-
-      function buatShot(shotId){
-        return '<div class="shot" id="'+shotId+'">' +
-          '<h3>&#128663; Laporan Cek Kendaraan</h3>' +
-          '<p><b>Tanggal Pengecekan:</b> '+tanggalLengkap+' &nbsp;|&nbsp; <b>Petugas:</b> '+petugas+' &nbsp;|&nbsp; <b>Nopol:</b> '+nopol+'</p>' +
-          '<p style="margin-top:4px"><b>Periode Laporan:</b> '+periodeLengkap+'</p>' +
-          '<p style="margin-top:4px"><b>KM Saat Ini:</b> '+kmNow+' km &nbsp;|&nbsp; <b>Ganti Oli Mesin:</b> '+kmMesin+' km<br><b>Ganti Oli Persneling:</b> '+kmPersneling+' km &nbsp;|&nbsp; <b>Ganti Oli Gardan:</b> '+kmGardan+' km</p>' +
-          '<p style="margin-top:4px"><b>Tanggal Berlaku STNK:</b> '+stnk+'</p>' + tabel +
-          '</div>';
-      }
-
-      // --- Bagian "Form Pengecekan" (Hari Ini) ---
-      var shotHariIni = buatShot('laporanShotHariIni');
-      var shareHtmlHariIni = '<div class="share"><div class="share-title">Bagikan laporan:</div><div class="share-btns">' +
-        '<button type="button" class="s-wa" onclick="shareFoto(\'hariini\')">Bagikan ke WhatsApp (Hari Ini)</button>' +
-        '<button type="button" class="s-xl" onclick="exportExcel()">&#128202; Ekspor ke Excel</button>' +
-        '</div></div>';
-      var isi = '<div class="ok">&#10004; Data berhasil disimpan!</div>' + shotHariIni + shareHtmlHariIni;
-      var hasil = document.getElementById('hasil');
-      hasil.style.display = 'block';
-      hasil.innerHTML = isi;
-
-      // --- Bagian "Ringkasan" (Periode) ---
-      var shotPeriode = buatShot('laporanShotPeriode');
-      var shareHtmlPeriode = '<div class="share"><div class="share-title">Bagikan laporan:</div><div class="share-btns">' +
-        '<button type="button" class="s-wa" onclick="shareFoto(\'periode\')">Bagikan ke WhatsApp (Periode)</button>' +
-        '</div></div>';
-      document.getElementById('ringkasanKosong').style.display = 'none';
-      document.getElementById('ringkasanIsi').innerHTML = shotPeriode + shareHtmlPeriode;
+      var laporan = { tanggal: tanggal, hari: hari, periodeAwal: periodeAwal || '(kosong)', periodeAkhir: periodeAkhir || '(kosong)', petugas: petugas, nopol: nopol, kmNow: kmNow, kmMesin: kmMesin, kmPersneling: kmPersneling, kmGardan: kmGardan, stnk: stnk, baris: baris };
+      vehicles[nopol].laporan = laporan;
+      simpanFormKeState(nopol);
+      tampilkanHasilForm(nopol);
+      renderRingkasan();
+      perbaruiStatusVtab();
     });
   }
 
@@ -515,10 +626,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       '<div class="muted" style="margin-top:4px">Jika menu berbagi tidak muncul, ketuk tautan di atas lalu bagikan filenya.</div>';
   }
 
-  function exportExcel(){
-    if (!dataTersimpan){ alert('Simpan data dulu.'); return; }
+  function exportExcel(nopol){
+    nopol = nopol || nopolAktif;
+    var lap = vehicles[nopol] && vehicles[nopol].laporan;
+    if (!lap){ alert('Simpan data dulu untuk kendaraan '+nopol+'.'); return; }
     if (typeof ExcelJS === 'undefined'){ alert('Library Excel belum termuat. Pastikan ada koneksi internet, lalu coba lagi.'); return; }
-    var d = dataTersimpan;
+    var d = lap;
     var btn = document.querySelector('.s-xl');
     if (btn){ btn.style.pointerEvents='none'; btn.style.opacity='.6'; btn.textContent='Membuat Excel...'; }
 
@@ -623,7 +736,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return wb.xlsx.writeBuffer();
     }).then(function(buf){
       var blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      var fname = 'Laporan-Cek-Kendaraan-' + d.hari + '-' + d.tanggal + '.xlsx';
+      var fname = 'Laporan-Cek-Kendaraan-' + slugNopol(d.nopol) + '-' + d.hari + '-' + d.tanggal + '.xlsx';
       var url = URL.createObjectURL(blob);
 
       // 1) SELALU tampilkan link unduh yang bisa diketuk (paling andal di semua HP/webview)
