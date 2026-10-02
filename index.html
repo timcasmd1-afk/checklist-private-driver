@@ -66,6 +66,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   .vtab.belum { background:#e74c3c; color:#fff; border-color:#c0392b; }
   .vtab.terisi { background:#1e3a5f; color:#fff; border-color:#1e3a5f; }
   .vtab.active { box-shadow: 0 0 0 3px rgba(77,163,255,.55); }
+  @keyframes kedipItem { 0%, 100% { background-color: #ffffff; } 50% { background-color: #ff5c5c; color:#fff; } }
+  td.item.item-berkedip { animation: kedipItem 1s infinite; border-radius:4px; }
+  td.item.item-berkedip .itemInput { background:transparent !important; color:inherit; }
+  td.item.item-berkedip .itemNote { color:inherit !important; opacity:.9; }
   .wrap { max-width: 900px; margin: 24px auto; padding: 0 16px; }
   .card { background:#fff; border-radius:10px; padding:24px; box-shadow:0 1px 4px rgba(0,0,0,.08); margin-bottom:20px; }
   h2 { font-size:20px; margin-bottom:16px; color:#1e3a5f; }
@@ -255,7 +259,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           &bull; <b>Foto</b>: tap <b>Ambil Foto</b> untuk membuka <b>kamera HP</b> &mdash; maksimal <b>3 foto</b> per item, jepret satu per satu. Tap tanda &times; pada foto untuk menghapus.<br>
           &bull; Tombol <b>Tambah Item Cek</b> dan <b>Edit Item Cek</b> dilindungi password (khusus admin).<br>
           &bull; Klik <b>Simpan</b> lalu <b>Bagikan ke WhatsApp</b> untuk mengirim laporan sebagai gambar.<br>
-          &bull; <b>Ekspor ke Excel</b>: hasilkan file <b>.xlsx</b> berisi data + <b>foto tertanam</b> di sel. Di HP bisa langsung dibagikan (mis. ke WhatsApp), di PC otomatis terunduh. Berfungsi tanpa internet.
+          &bull; <b>Ekspor ke Excel</b>: hasilkan file <b>.xlsx</b> berisi data + <b>foto tertanam</b> di sel. Di HP bisa langsung dibagikan (mis. ke WhatsApp), di PC otomatis terunduh. Berfungsi tanpa internet.<br>
+          &bull; Nama item yang <b>berkedip merah</b> artinya sudah lewat jadwal: <b>Tambah angin ban</b> berkedip pada <b>tanggal 16-31</b> tiap bulan bila bulan itu belum dikerjakan, dan <b>Cuci mobil</b> berkedip di hari <b>Kamis, Jumat, Sabtu</b> bila minggu ini belum dicuci. Tandanya akan hilang begitu item itu disimpan dengan Tindakan selain "Tidak ada".
         </p>
       </div>
     </section>
@@ -270,12 +275,75 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       document.getElementById(btn.dataset.target).classList.add('active');
     });
   });
-  var itemsDefault = ['Air radiator', 'Air aki', 'Angin ban', 'Kondisi ban', 'Cuci mobil', 'Kondisi body', 'Kerusakan'];
-  var catatanItem = { 'Cuci mobil': 'Cuci mobil minimal 1x seminggu' };
+  var itemsDefault = ['Air radiator', 'Air aki', 'Angin ban', 'Tambah angin ban', 'Kondisi ban', 'Cuci mobil', 'Kondisi body', 'Kerusakan'];
+  var catatanItem = {
+    'Cuci mobil': 'Cuci mobil minimal 1x seminggu',
+    'Tambah angin ban': 'Wajib dikerjakan tanggal 16-31 tiap bulan'
+  };
   var kondisiOpsi = ['Full', 'Kurang', 'Bagus', 'Tipis', 'Bersih', 'Kotor', 'Ada', 'Tidak ada'];
   var tindakanOpsi = ['Isi', 'Tidak ada', 'Tambal Ban', 'Ganti Ban', 'Cuci', 'Laporan'];
   var daftarNopol = ['L 45 AD', 'M 1628 AV'];
   function slugNopol(nopol){ return (nopol || '').replace(/\s+/g, ''); }
+
+  // --- Pengingat berkala (Tambah Angin Ban: bulanan tgl 16-31, Cuci Mobil: mingguan) ---
+  var pengingatItem = {
+    'Tambah angin ban': { tipe: 'bulanan', mulaiTanggal: 16 },
+    'Cuci mobil': { tipe: 'mingguan', hariPengingat: [4, 5, 6] } // Kamis, Jumat, Sabtu (getDay: Minggu=0 ... Sabtu=6)
+  };
+  function bacaRiwayatPengingat(){
+    try { return JSON.parse(localStorage.getItem('riwayatCekKendaraan') || '{}'); } catch(e){ return {}; }
+  }
+  function simpanRiwayatPengingat(r){
+    try { localStorage.setItem('riwayatCekKendaraan', JSON.stringify(r)); } catch(e){}
+  }
+  function catatRiwayatItem(nopol, namaItem, tanggalISO){
+    if (!pengingatItem[namaItem] || !tanggalISO || tanggalISO.length !== 10) return;
+    var r = bacaRiwayatPengingat();
+    var key = slugNopol(nopol);
+    if (!r[key]) r[key] = {};
+    if (!r[key][namaItem]) r[key][namaItem] = [];
+    if (r[key][namaItem].indexOf(tanggalISO) === -1) r[key][namaItem].push(tanggalISO);
+    simpanRiwayatPengingat(r);
+  }
+  function tanggalTerakhirDikerjakan(nopol, namaItem){
+    var r = bacaRiwayatPengingat();
+    var key = slugNopol(nopol);
+    var arr = (r[key] && r[key][namaItem]) || [];
+    if (!arr.length) return null;
+    return arr.slice().sort().pop();
+  }
+  function cekBerkedip(nopol, namaItem){
+    var cfg = pengingatItem[namaItem];
+    if (!cfg) return false;
+    var lastStr = tanggalTerakhirDikerjakan(nopol, namaItem);
+    var today = new Date(); today.setHours(0,0,0,0);
+    if (cfg.tipe === 'bulanan'){
+      if (today.getDate() < cfg.mulaiTanggal) return false;
+      if (!lastStr) return true;
+      var last = new Date(lastStr + 'T00:00:00');
+      var bulanSama = last.getFullYear() === today.getFullYear() && last.getMonth() === today.getMonth();
+      return !bulanSama;
+    }
+    if (cfg.tipe === 'mingguan'){
+      var hariIni = today.getDay();
+      if (cfg.hariPengingat.indexOf(hariIni) === -1) return false;
+      var offset = (hariIni === 0) ? 6 : hariIni - 1;
+      var senin = new Date(today); senin.setDate(today.getDate() - offset);
+      if (!lastStr) return true;
+      var last2 = new Date(lastStr + 'T00:00:00');
+      return last2 < senin;
+    }
+    return false;
+  }
+  function perbaruiPengingatItem(nopol){
+    var trs = [].slice.call(document.querySelectorAll('#tabelCek tbody tr'));
+    trs.forEach(function(tr){
+      var namaItem = tr.querySelector('.itemInput').value;
+      if (!pengingatItem[namaItem]) return;
+      var cell = tr.querySelector('.item');
+      cell.classList.toggle('item-berkedip', cekBerkedip(nopol, namaItem));
+    });
+  }
   function stateKendaraanBaru(){
     return {
       petugas: '', kmNow: '', kmMesin: '', kmPersneling: '', kmGardan: '', stnk: '',
@@ -341,6 +409,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       nopolAktif = btn.dataset.nopol;
       muatStateKeForm(nopolAktif);
       tampilkanHasilForm(nopolAktif);
+      perbaruiPengingatItem(nopolAktif);
     });
   });
 
@@ -386,6 +455,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var today = namaHari[new Date().getDay()];
     document.getElementById('hari').innerHTML = '<option>'+today+'</option>';
   })();
+  perbaruiPengingatItem(nopolAktif);
 
   function formatTgl(iso){
     if (!iso) return null;
@@ -589,9 +659,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       var laporan = { tanggal: tanggal, hari: hari, periodeAwal: periodeAwal || '(kosong)', periodeAkhir: periodeAkhir || '(kosong)', petugas: petugas, nopol: nopol, kmNow: kmNow, kmMesin: kmMesin, kmPersneling: kmPersneling, kmGardan: kmGardan, stnk: stnk, baris: baris };
       vehicles[nopol].laporan = laporan;
       simpanFormKeState(nopol);
+      baris.forEach(function(b){
+        if (pengingatItem[b.item] && b.tindakan && b.tindakan !== 'Tidak ada' && tanggal.length === 10) {
+          catatRiwayatItem(nopol, b.item, tanggal);
+        }
+      });
       tampilkanHasilForm(nopol);
       renderRingkasan();
       perbaruiStatusVtab();
+      perbaruiPengingatItem(nopol);
     });
   }
 
